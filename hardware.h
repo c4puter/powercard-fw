@@ -10,6 +10,11 @@
 #define bm(bp)      (1 << (bp))
 #define PINCTRL(bp) CONCAT(PIN, CONCAT(bp, CTRL))
 
+#define PORTA_UNUSED    (bm(1) | bm(5) | bm(6) | bm(7))
+#define PORTC_UNUSED    (bm(3))
+#define PORTD_UNUSED    (bm(5))
+#define PORTR_UNUSED    (bm(0) | bm(1))
+
 #define LED_A_PORT  PORTA
 #define LED_A_bp    2
 #define LED_B_PORT  PORTA

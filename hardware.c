@@ -62,6 +62,7 @@ void init_ports(void)
     INT_PORT.OUTCLR = bm(INT_bp);
 
     RX_PORT.DIRCLR = bm(RX_bp);
+    RX_PORT.PINCTRL(RX_bp) = PORT_OPC_PULLUP_gc;
     TX_PORT.OUTSET = bm(TX_bp);
     TX_PORT.DIRSET = bm(TX_bp);
     TX_PORT.PINCTRL(TX_bp) = PORT_SRLEN_bm | PORT_OPC_TOTEM_gc;
@@ -89,6 +90,27 @@ void init_ports(void)
         P5A_SYNC_PORT.REMAP |= (PORT_TC0A_bm | PORT_TC0B_bm | PORT_TC0C_bm | PORT_TC0D_bm);
     }
 
+    // Beware! the conditionals are necessary here. If an unused mask is zero,
+    // this will disable the MPCMASK for that operation and set a pullup on
+    // pin 0 of that port.
+    if (PORTA_UNUSED) {
+        PORTCFG.MPCMASK = PORTA_UNUSED;
+        PORTA.PIN0CTRL = PORT_OPC_PULLUP_gc;
+    }
+    if (PORTC_UNUSED) {
+        PORTCFG.MPCMASK = PORTC_UNUSED;
+        PORTC.PIN0CTRL = PORT_OPC_PULLUP_gc;
+    }
+    if (PORTD_UNUSED) {
+        PORTCFG.MPCMASK = PORTD_UNUSED;
+        PORTD.PIN0CTRL = PORT_OPC_PULLUP_gc;
+    }
+#ifdef PORTR
+    if (PORTR_UNUSED) {
+        PORTCFG.MPCMASK = PORTR_UNUSED;
+        PORTR.PIN0CTRL = PORT_OPC_PULLUP_gc;
+    }
+#endif
 }
 
 
