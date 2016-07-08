@@ -1,0 +1,73 @@
+C4-0 POWER SUPPLY FIRMWARE
+==========================
+
+The microcontroller on the C4-0 power supply provides very basic control and
+supervisory functions, as well as a waveform generator for the sync phase
+signals.
+
+Generates four sync signals with phase relationships as shown:
+
+                 ___     ___
+SYNC_P3A    \___/   \___/       f ~= 600kHz
+             ___     ___
+SYNC_P3B    /   \___/   \___
+             ___     ___
+SYNC_P5A    /   \___/   \___
+                 ___     ___
+SYNC_P5B    \___/   \___/
+
+
+Standby mode
+------------
+
+When in standby (the default at power-on, and subsequently when placed in that
+mode via the debug or control ports):
+
+    - MCU power consumption is reduced. High-speed oscillator shut down,
+      CPU in sleep until data arrives at an interface.
+
+    - SYNC_P3B is solidly asserted (no clock), and the other three SYNC_*
+      signals as well as N12_EN are deasserted. This enables one 3.3V
+      regulator to provide standby power.
+
+    - In the first 100ms after enabling P3B, P3B_PG (power good) must settle
+      to the 'good' state. If it does not, the regulator will be disabled, and
+      the 'SFY'* and '3VB' LEDs lit to indicate the error.
+
+    - 100ms after P3B_PG settles, a supervisory state is entered where any
+      change in power-good status will again disable the regulator and trigger
+      the 'SFY' and '3VB' LEDs.
+
+
+Full-power mode
+---------------
+
+After being switched to full-power mode:
+
+    - High-speed oscillator is spun up to 32 MHz to allow accurate generation
+      of timing signals.
+
+    - P3B defaults to enabled; the other three buck converters and the
+      inverting converter default to disabled.
+
+    - The SYNC output for each buck regulator shall be the logical AND of its
+      synchronization clock signal and its enable status.
+
+    - The inverting regulator shares a synchronization signal with 3VB.
+
+    - Enabling the N12 regulator will be delayed until 100ms after
+      power-good status is received for (3VB && (5VA || 5VB)). If N12 is
+      enabled but its parent supplies have not come up yet, this is considered
+      a power-bad state.
+
+    - In the first 100ms after enabling any supply (including N12), its
+      respective PG (power good) signal must settle to the 'good' state. If
+      it does not, the regulator will be disabled, and the 'SFY' LED and
+      per-supply LED will light to indicate the error.
+
+    - 100ms after PG settles, that supply enters a supervisory state where
+      any change in power-good status will disable all regulators and trigger
+      the 'SFY' and per-supply LEDs.
+
+
+* SFY = Shit's Fucked, Yo.
