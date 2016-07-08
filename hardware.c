@@ -58,6 +58,9 @@ void init_ports(void)
 
     SDA_PORT.DIRCLR = I2C_gm;
 
+    INT_PORT.PINCTRL(INT_bp) = PORT_OPC_WIREDANDPULL_gc | PORT_INVEN_bm;
+    INT_PORT.OUTCLR = bm(INT_bp);
+
     RX_PORT.DIRCLR = bm(RX_bp);
     TX_PORT.OUTSET = bm(TX_bp);
     TX_PORT.DIRSET = bm(TX_bp);

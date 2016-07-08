@@ -25,6 +25,9 @@
 #define I2C_gm      (bm(SDA_bp) | bm(SCL_bp))
 #define I2C_TWI     TWIC
 
+#define INT_PORT    PORTC
+#define INT_bp      2
+
 #define TX_PORT     PORTD
 #define TX_bp       7
 #define RX_PORT     PORTD
