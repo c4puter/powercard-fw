@@ -38,7 +38,15 @@
 #define RX_PORT     PORTD
 #define RX_bp       6
 #define UART_gm     (bm(TX_bp) | bm(RX_bp))
-#define UART_USART  USARTD
+#define UART_USART  USARTD0
+#define UART_DREINT USARTD0_DRE_vect
+#define UART_BSEL   12u
+#define UART_BSCALE 4
+#define UART_2X     0
+#define UART_CHSIZE 8
+#define UART_PARITY 'N'
+#define UART_STOP   1
+#define UART_DREINTLVL  USART_DREINTLVL_LO_gc
 
 #define N12_EN_PORT PORTA
 #define N12_EN_bp   0
@@ -47,28 +55,28 @@
 
 #define P5A_SYNC_PORT   PORTC
 #define P5A_SYNC_bp     4
-#define P5A_SYNC_CC_bp  TC0_CCAEN_bp
+#define P5A_SYNC_CC_bp  0   // A
 #define P5A_PG_PORT     PORTD
 #define P5A_PG_bp       4
 #define P5A_PHASE_180   0
 
 #define P5B_SYNC_PORT   PORTC
 #define P5B_SYNC_bp     5
-#define P5B_SYNC_CC_bp  TC0_CCBEN_bp
+#define P5B_SYNC_CC_bp  2   // B
 #define P5B_PG_PORT     PORTD
 #define P5B_PG_bp       3
 #define P5B_PHASE_180   1
 
 #define P3A_SYNC_PORT   PORTC
 #define P3A_SYNC_bp     6
-#define P3A_SYNC_CC_bp  TC0_CCCEN_bp
+#define P3A_SYNC_CC_bp  4   // C
 #define P3A_PG_PORT     PORTD
 #define P3A_PG_bp       2
 #define P3A_PHASE_180   1
 
 #define P3B_SYNC_PORT   PORTC
 #define P3B_SYNC_bp     7
-#define P3B_SYNC_CC_bp  TC0_CCDEN_bp
+#define P3B_SYNC_CC_bp  6   // D
 #define P3B_PG_PORT     PORTD
 #define P3B_PG_bp       1
 #define P3B_PHASE_180   0
@@ -78,20 +86,35 @@
 #define DCDC_FREQUENCY  600e3
 #define DCDC_SYNC_PORT  P5A_SYNC_PORT
 #define DCDC_PG_PORT    P5A_PG_PORT
-#define DCDC_TIMER      TCC0
+#define DCDC_TIMER      TCC4
 
 void init_ports(void);
 void init_clock(void);
 void init_timer(void);
 
+void init_uart(void);
+
+/**
+ * Transmit one character through the UART.
+ *
+ * @param ch - character to be transmitted
+ */
+void uart_transmit(char ch);
+
+/**
+ * Receive one character through the UART. Returns -1 if one is
+ * not available.
+ */
+int uart_receive(void);
+
 void _enable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm, bool phase_180);
 void _disable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm);
 
 #define ENABLE_DCDC(dcdc) _enable_dcdc(bm(CONCAT(dcdc, _SYNC_bp)),      \
-                                       bm(CONCAT(dcdc, _SYNC_CC_bp)),   \
+                                       TC45_CCAMODE_COMP_gc << (CONCAT(dcdc, _SYNC_CC_bp)),   \
                                        CONCAT(dcdc, _PHASE_180))
 
 #define DISABLE_DCDC(dcdc) _disable_dcdc(bm(CONCAT(dcdc, _SYNC_bp)),    \
-                                         bm(CONCAT(dcdc, _SYNC_CC_bp)))
+                                         TC45_CCAMODE_COMP_gc << (CONCAT(dcdc, _SYNC_CC_bp)))
 
 #endif // HARDWARE_H

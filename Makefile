@@ -1,14 +1,15 @@
 PROJECT = powercard
-OBJECTS = main.o hardware.o
-CHIP = atxmega128a1u
+OBJECTS = main.o hardware.o esh/esh_argparser.o esh/esh.o esh/esh_hist.o
+CHIP = atxmega32e5
+AVRDUDE_CHIP = x32e5
 
 CC = avr-gcc
 OBJDUMP = avr-objdump
 OBJCOPY = avr-objcopy
 SIZE = avr-size
 
-CFLAGS = -mmcu=${CHIP} -DF_CPU=32000000uLL -std=c11 -Wall -Wextra -Werror \
-		 -O2 -g
+CFLAGS = -mmcu=${CHIP} -DF_CPU=32000000uLL -std=gnu11 -Wall -Wextra -Werror \
+		 -O2 -g -I esh -iquote .
 
 .PHONY:	all clean program
 
@@ -25,8 +26,9 @@ ${PROJECT}.elf:	${OBJECTS}
 	${SIZE} $@
 
 program: ${PROJECT}.hex
-	dfu-programmer ${CHIP} flash --force $<
+	#dfu-programmer ${CHIP} flash --force $<
+	avrdude -p ${AVRDUDE_CHIP} -c atmelice_pdi -U flash:w:$<
 
 clean:
-	rm -f ${PROJECT}.elf ${PROJECT}.disasm ${OBJECTS}
+	rm -f ${PROJECT}.hex ${PROJECT}.disasm ${PROJECT}.elf ${OBJECTS}
 

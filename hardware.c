@@ -1,3 +1,4 @@
+#include <util/atomic.h>
 #include <assert.h>
 #include "hardware.h"
 
@@ -53,7 +54,7 @@ _Static_assert(&P5A_PG_PORT == &P5B_PG_PORT &&
 void init_ports(void)
 {
     PORTCFG.MPCMASK = LED_gm;
-    LED_A_PORT.PIN0CTRL = PORT_SRLEN_bm | PORT_OPC_TOTEM_gc;
+    LED_A_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc;
     LED_A_PORT.DIRSET = LED_gm;
 
     SDA_PORT.DIRCLR = I2C_gm;
@@ -65,20 +66,20 @@ void init_ports(void)
     RX_PORT.PINCTRL(RX_bp) = PORT_OPC_PULLUP_gc;
     TX_PORT.OUTSET = bm(TX_bp);
     TX_PORT.DIRSET = bm(TX_bp);
-    TX_PORT.PINCTRL(TX_bp) = PORT_SRLEN_bm | PORT_OPC_TOTEM_gc;
+    TX_PORT.PINCTRL(TX_bp) = PORT_OPC_TOTEM_gc;
     if (TX_bp > 3) {
         // UART pins are in the high half of the port - remap them
         TX_PORT.REMAP |= PORT_USART0_bm;
     }
 
-    N12_EN_PORT.PINCTRL(N12_EN_bp) = PORT_SRLEN_bm | PORT_OPC_TOTEM_gc;
+    N12_EN_PORT.PINCTRL(N12_EN_bp) = PORT_OPC_TOTEM_gc;
     N12_EN_PORT.OUTCLR = bm(N12_EN_bp);
     N12_EN_PORT.DIRSET = bm(N12_EN_bp);
     N12_PG_PORT.PINCTRL(N12_PG_bp) = PORT_OPC_PULLUP_gc;
     N12_PG_PORT.DIRCLR = bm(N12_PG_bp);
 
     PORTCFG.MPCMASK = DCDC_SYNC_gm;
-    DCDC_SYNC_PORT.PIN0CTRL = PORT_SRLEN_bm | PORT_OPC_TOTEM_gc;
+    DCDC_SYNC_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc;
     DCDC_SYNC_PORT.OUTCLR = DCDC_SYNC_gm;
     DCDC_SYNC_PORT.DIRSET = DCDC_SYNC_gm;
 
@@ -87,7 +88,7 @@ void init_ports(void)
     DCDC_PG_PORT.DIRCLR = DCDC_PG_gm;
 
     if (DCDC_SYNC_gm == 0xf0) {
-        P5A_SYNC_PORT.REMAP |= (PORT_TC0A_bm | PORT_TC0B_bm | PORT_TC0C_bm | PORT_TC0D_bm);
+        P5A_SYNC_PORT.REMAP |= (PORT_TC4A_bm | PORT_TC4B_bm | PORT_TC4C_bm | PORT_TC4D_bm);
     }
 
     // Beware! the conditionals are necessary here. If an unused mask is zero,
@@ -127,8 +128,8 @@ void init_clock(void)
 
 void init_timer(void)
 {
-    DCDC_TIMER.CTRLA = TC_CLKSEL_DIV1_gc;
-    DCDC_TIMER.CTRLB = TC_WGMODE_FRQ_gc;
+    DCDC_TIMER.CTRLA = TC45_CLKSEL_DIV1_gc;
+    DCDC_TIMER.CTRLB = TC45_WGMODE_FRQ_gc;
 
     // From XMEGA AU manual, p 172:
     // fFRQ = fclkper / (2 PRESC (CCA + 1))
@@ -140,16 +141,56 @@ void _enable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm, bool phase_180)
 {
     PORTCFG.MPCMASK = sync_bm;
     DCDC_SYNC_PORT.PIN0CTRL =
-        PORT_OPC_TOTEM_gc | PORT_SRLEN_bm |
+        PORT_OPC_TOTEM_gc |
         (phase_180 ? PORT_INVEN_bm : 0);
-    DCDC_TIMER.CTRLB |= sync_cc_bm;
+    DCDC_TIMER.CTRLE |= sync_cc_bm;
 }
 
 
 void _disable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm)
 {
-    DCDC_TIMER.CTRLB &= ~sync_cc_bm;
+    DCDC_TIMER.CTRLE &= ~sync_cc_bm;
     PORTCFG.MPCMASK = sync_bm;
-    DCDC_SYNC_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc | PORT_SRLEN_bm;
+    DCDC_SYNC_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc;
     DCDC_SYNC_PORT.OUTCLR = sync_bm;
+}
+
+
+/******************************************************************************
+ * UART
+ *****************************************************************************/
+
+void init_uart(void)
+{
+    UART_USART.CTRLA = 0;
+    UART_USART.CTRLB = USART_TXEN_bm | USART_RXEN_bm
+        | (UART_2X ? USART_CLK2X_bm : 0);
+    UART_USART.CTRLC = 0
+        | (((UART_CHSIZE - 5) & 0x3) << USART_CHSIZE_gp)
+        | (UART_PARITY == 'E' ? USART_PMODE_EVEN_gc :
+           UART_PARITY == 'O' ? USART_PMODE_ODD_gc :
+                                USART_PMODE_DISABLED_gc )
+        | (UART_STOP > 1 ? USART_SBMODE_bm : 0);
+    UART_USART.BAUDCTRLA = UART_BSEL & 0xff;
+    const uint8_t bscale_4bit = (uint8_t)(int8_t)(UART_BSCALE) & 0x0f;
+    UART_USART.BAUDCTRLB = ((UART_BSEL & 0x0f00u) >> 8) | (bscale_4bit << 4);
+
+    // debug hack
+    TX_PORT.DIRSET = bm(TX_bp);
+}
+
+
+void uart_transmit(char ch)
+{
+    while (!(UART_USART.STATUS & USART_DREIF_bm));
+    UART_USART.DATA = ch;
+}
+
+int uart_receive(void)
+{
+    if (UART_USART.STATUS & USART_RXCIF_bm) {
+        return (int)(unsigned char) UART_USART.DATA;
+    } else {
+        return -1;
+    }
 }
