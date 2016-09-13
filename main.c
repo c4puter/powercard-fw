@@ -7,9 +7,10 @@
 
 #include "hardware.h"
 
-void esh_cb(esh_t * esh, int argc, char ** argv)
+void esh_cb(esh_t * esh, int argc, char ** argv, void * arg)
 {
     (void) esh;
+    (void) arg;
     if (argc < 1) {
         return;
     }
@@ -39,9 +40,10 @@ void esh_cb(esh_t * esh, int argc, char ** argv)
     }
 }
 
-void esh_printer(esh_t * esh, char const * s)
+void esh_printer(esh_t * esh, char const * s, void * arg)
 {
     (void) esh;
+    (void) arg;
     while (s && *s) {
         if (*s == '\n') {
             uart_transmit('\r');
@@ -59,16 +61,15 @@ int main(void)
     init_uart();
     sei();
 
-    esh_t esh;
-    esh_init(&esh);
-    esh_register_callback(&esh, &esh_cb);
-    esh_register_print(&esh, &esh_printer);
+    esh_t * esh = esh_init();
+    esh_register_command(esh, &esh_cb, NULL);
+    esh_register_print(esh, &esh_printer, NULL);
 
     for(;;) {
         int c = uart_receive();
         if (c > 0) {
             if (c == '\r') c = '\n';
-            esh_rx(&esh, (char) c);
+            esh_rx(esh, (char) c);
         }
     }
 }

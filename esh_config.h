@@ -3,3 +3,5 @@
 #define ESH_ARGC_MAX 10
 #define ESH_HIST_ALLOC STATIC
 #define ESH_HIST_LEN 256
+#define ESH_ALLOC STATIC
+#define ESH_INSTANCES 1
