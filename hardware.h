@@ -37,6 +37,7 @@
 #define TX_bp       7
 #define RX_PORT     PORTD
 #define RX_bp       6
+#define RX_vect     PORTD_INT_vect
 #define UART_gm     (bm(TX_bp) | bm(RX_bp))
 #define UART_USART  USARTD0
 #define UART_DREINT USARTD0_DRE_vect
@@ -116,5 +117,22 @@ void _disable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm);
 
 #define DISABLE_DCDC(dcdc) _disable_dcdc(bm(CONCAT(dcdc, _SYNC_bp)),    \
                                          TC45_CCAMODE_COMP_gc << (CONCAT(dcdc, _SYNC_CC_bp)))
+
+void enable_n12(void);
+void disable_n12(void);
+
+// Enter standby mode.
+// This enables 3VB in unsync mode, disables all other supplies, and decreases
+// the clock speed significantly.
+void standby(void);
+
+// Return whether in standby mode.
+// The main loop should check this after handling commands, and if we're
+// supposed to be in standby mode, wait at least a couple times the interface
+// baud rate before calling enable_wake() to avoid immediate wakeup.
+bool in_standby(void);
+
+// Enable the interrupts to resume from standby.
+void enable_wake(void);
 
 #endif // HARDWARE_H

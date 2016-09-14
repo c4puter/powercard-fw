@@ -1,5 +1,6 @@
 PROJECT = powercard
-OBJECTS = main.o hardware.o esh/esh_argparser.o esh/esh.o esh/esh_hist.o
+OBJECTS = main.o hardware.o leds.o \
+		  esh/esh_argparser.o esh/esh.o esh/esh_hist.o
 CHIP = atxmega32e5
 AVRDUDE_CHIP = x32e5
 
@@ -9,7 +10,7 @@ OBJCOPY = avr-objcopy
 SIZE = avr-size
 
 CFLAGS = -mmcu=${CHIP} -DF_CPU=32000000uLL -std=gnu11 -Wall -Wextra -Werror \
-		 -O2 -g -I esh -iquote .
+		 -O2 -g -flto -I esh -iquote .
 
 .PHONY:	all clean program
 

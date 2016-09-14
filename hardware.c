@@ -55,7 +55,7 @@ void init_ports(void)
 {
     PORTCFG.MPCMASK = LED_gm;
     LED_A_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc;
-    LED_A_PORT.DIRSET = LED_gm;
+    LED_A_PORT.DIRCLR = LED_gm;
 
     SDA_PORT.DIRCLR = I2C_gm;
 
@@ -72,7 +72,13 @@ void init_ports(void)
         TX_PORT.REMAP |= PORT_USART0_bm;
     }
 
-    N12_EN_PORT.PINCTRL(N12_EN_bp) = PORT_OPC_TOTEM_gc;
+    // Set up, but do not enable, pin change interrupt on RX. This is used
+    // to wake from suspend.
+    RX_PORT.INTCTRL = PORT_INTLVL_LO_gc;
+    RX_PORT.INTMASK = bm(RX_bp);
+    RX_PORT.PINCTRL(RX_bp) |= PORT_ISC_FALLING_gc;
+
+    N12_EN_PORT.PINCTRL(N12_EN_bp) = PORT_OPC_TOTEM_gc | PORT_INVEN_bm;
     N12_EN_PORT.OUTCLR = bm(N12_EN_bp);
     N12_EN_PORT.DIRSET = bm(N12_EN_bp);
     N12_PG_PORT.PINCTRL(N12_PG_bp) = PORT_OPC_PULLUP_gc;
@@ -153,6 +159,59 @@ void _disable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm)
     PORTCFG.MPCMASK = sync_bm;
     DCDC_SYNC_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc;
     DCDC_SYNC_PORT.OUTCLR = sync_bm;
+}
+
+
+void enable_n12(void)
+{
+    N12_EN_PORT.OUTSET = bm(N12_EN_bp);
+}
+
+
+void disable_n12(void)
+{
+    N12_EN_PORT.OUTCLR = bm(N12_EN_bp);
+}
+
+
+static volatile bool standby_flag = false;
+
+void standby(void)
+{
+    disable_n12();
+    DISABLE_DCDC(P5A);
+    DISABLE_DCDC(P5B);
+    P3B_SYNC_PORT.OUTSET = bm(P3B_SYNC_bp);
+    DCDC_TIMER.CTRLE &= ~bm(P3B_SYNC_CC_bp);
+
+    OSC.CTRL |= OSC_RC2MEN_bm;
+    while (!(OSC.STATUS & OSC_RC2MRDY_bm));
+
+    _PROTECTED_WRITE(CLK.PSCTRL, CLK_PSADIV_16_gc | CLK_PSBCDIV_1_1_gc);
+    _PROTECTED_WRITE(CLK.CTRL, CLK_SCLKSEL_RC2M_gc);
+    OSC.CTRL &= ~OSC_RC32MEN_bm;
+    standby_flag = true;
+}
+
+
+ISR(RX_vect)
+{
+    RX_PORT.INTCTRL = PORT_INTLVL_OFF_gc;
+    init_clock();
+    standby_flag = false;
+}
+
+
+bool in_standby(void)
+{
+    return standby_flag;
+}
+
+
+void enable_wake(void)
+{
+    RX_PORT.INTFLAGS = bm(RX_bp);
+    RX_PORT.INTCTRL = PORT_INTLVL_LO_gc;
 }
 
 
