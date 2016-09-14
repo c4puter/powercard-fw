@@ -1,5 +1,5 @@
 PROJECT = powercard
-OBJECTS = main.o hardware.o leds.o \
+OBJECTS = main.o hardware.o leds.o regulator.o \
 		  esh/esh_argparser.o esh/esh.o esh/esh_hist.o
 CHIP = atxmega32e5
 AVRDUDE_CHIP = x32e5

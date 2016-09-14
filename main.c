@@ -8,14 +8,12 @@
 #include <stdio.h>
 
 #include "hardware.h"
+#include "regulator.h"
 #include "leds.h"
 
 static int uart_putchar(char c, FILE *stream);
 static FILE uart_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
                                                  _FDEV_SETUP_WRITE);
-
-static volatile bool supply_enabled[6] = {false};
-static volatile bool power_good[6] = {false};
 
 static int uart_putchar(char c, FILE *stream)
 {
@@ -30,7 +28,7 @@ static int uart_putchar(char c, FILE *stream)
 
 // Resolves a power supply to an int.
 // The power supply name is edited in place!
-int resolve_supply(char const * supply)
+static int resolve_supply(char const * supply)
 {
     if (!strcasecmp_P(supply, PSTR("5VA"))) {
         return 1;
@@ -47,6 +45,19 @@ int resolve_supply(char const * supply)
     }
 }
 
+static reg_type * map_supply(int num)
+{
+    switch (num) {
+    case 1: return reg_P5A;
+    case 2: return reg_P5B;
+    case 3: return reg_P3A;
+    case 4: return reg_P3B;
+    case 5: return reg_N12;
+    default: return NULL;
+    }
+}
+
+
 
 void esh_cb(esh_t * esh, int argc, char ** argv, void * arg)
 {
@@ -62,39 +73,27 @@ void esh_cb(esh_t * esh, int argc, char ** argv, void * arg)
             return;
         }
         printf_P(PSTR("enable supply %d\n"), supply);
-        switch (supply) {
-        case 1: ENABLE_DCDC(P5A); break;
-        case 2: ENABLE_DCDC(P5B); break;
-        case 3: ENABLE_DCDC(P3A); break;
-        case 4: ENABLE_DCDC(P3B); break;
-        case 5: enable_n12(); break;
-        }
-        if (supply > 0) {
-            supply_enabled[supply] = true;
+        if (supply > 0 && supply < 6) {
+            reg_enable(map_supply(supply), true);
         }
     } else if (!strcmp_P(argv[0], PSTR("dis"))) {
         if (argc < 2) {
             return;
         }
         printf_P(PSTR("disable supply %d\n"), supply);
-        switch (supply) {
-        case 1: DISABLE_DCDC(P5A); break;
-        case 2: DISABLE_DCDC(P5B); break;
-        case 3: DISABLE_DCDC(P3A); break;
-        case 4: DISABLE_DCDC(P3B); break;
-        case 5: disable_n12(); break;
-        }
-        if (supply > 0) {
-            supply_enabled[supply] = false;
+        if (supply > 0 && supply < 6) {
+            reg_disable(map_supply(supply));
         }
     } else if (!strcmp_P(argv[0], PSTR("stat"))) {
         if (argc < 2) {
             return;
         }
         if (supply > 0 && supply < 6) {
+            bool enabled = reg_is_enabled(map_supply(supply));
+            bool pg = reg_is_power_good(map_supply(supply));
             printf_P(PSTR("enabled: %c  power good: %c\n"),
-                    supply_enabled[supply] ? 'Y' : 'N',
-                    power_good[supply] ? 'Y' : 'N');
+                    enabled ? 'Y' : 'N',
+                    pg ? 'Y' : 'N');
         }
     } else if (!strcmp_P(argv[0], PSTR("standby"))) {
         standby();
@@ -114,29 +113,13 @@ void monitor_task(void)
     static uint8_t supply = 1;
     static bool found_bad = false;
 
-    bool pg = false;
-    switch (supply) {
-    case 1: pg = P5A_PG_PORT.IN & bm(P5A_PG_bp); break;
-    case 2: pg = P5B_PG_PORT.IN & bm(P5B_PG_bp); break;
-    case 3: pg = P3A_PG_PORT.IN & bm(P3A_PG_bp); break;
-    case 4: pg = P3B_PG_PORT.IN & bm(P3B_PG_bp); break;
-    case 5:
-        // N12 has special conditions. It requires 3VB for its clock, and
-        // one of 5VA or 5VB for its power.
-        pg = N12_PG_PORT.IN & bm(N12_PG_bp)
-            && (supply_enabled[4] && power_good[4])
-            && (   (supply_enabled[1] && power_good[1])
-                || (supply_enabled[2] && power_good[2]));
-        break;
-    }
-
-    power_good[supply] = pg;
+    bool pg = reg_is_power_good(map_supply(supply));
 
     if (supply == 1) {
         found_bad = false;
     }
 
-    if (!power_good[supply] && supply_enabled[supply]) {
+    if (pg) {
         found_bad = true;
     }
 
@@ -150,7 +133,7 @@ void monitor_task(void)
     case 4: led = LED_P3B; break;
     case 5: led = LED_N12; break;
     }
-    set_led(led, pg && supply_enabled[supply]);
+    set_led(led, pg);
 
     supply += 1;
     if (supply == 6) {
