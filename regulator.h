@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 struct regulator;
-typedef void const __memx * regptr;
+typedef struct regulator const __memx * regptr;
 
 // General regulator class
 struct regulator {
