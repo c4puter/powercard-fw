@@ -153,15 +153,6 @@ void esh_printer(esh_t * esh, char const * s, void * arg)
 }
 
 
-void fuck(void)
-{
-    LED_A_PORT.OUTSET = bm(LED_A_bp);
-    LED_B_PORT.OUTCLR = bm(LED_B_bp);
-    LED_A_PORT.DIRSET = bm(LED_A_bp) | bm(LED_B_bp);
-    for(;;);
-}
-
-
 int main(void)
 {
     init_ports();
