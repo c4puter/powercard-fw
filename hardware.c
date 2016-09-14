@@ -1,6 +1,7 @@
 #include <util/atomic.h>
 #include <assert.h>
 #include "hardware.h"
+#include "regulator.h"
 
 
 // Include bits not defined in 128A1U header (128A1U was used for devel)
@@ -84,19 +85,6 @@ void init_ports(void)
     N12_PG_PORT.PINCTRL(N12_PG_bp) = PORT_OPC_PULLUP_gc;
     N12_PG_PORT.DIRCLR = bm(N12_PG_bp);
 
-    PORTCFG.MPCMASK = DCDC_SYNC_gm;
-    DCDC_SYNC_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc;
-    DCDC_SYNC_PORT.OUTCLR = DCDC_SYNC_gm;
-    DCDC_SYNC_PORT.DIRSET = DCDC_SYNC_gm;
-
-    PORTCFG.MPCMASK = DCDC_PG_gm;
-    DCDC_PG_PORT.PIN0CTRL = PORT_OPC_PULLUP_gc;
-    DCDC_PG_PORT.DIRCLR = DCDC_PG_gm;
-
-    if (DCDC_SYNC_gm == 0xf0) {
-        P5A_SYNC_PORT.REMAP |= (PORT_TC4A_bm | PORT_TC4B_bm | PORT_TC4C_bm | PORT_TC4D_bm);
-    }
-
     // Beware! the conditionals are necessary here. If an unused mask is zero,
     // this will disable the MPCMASK for that operation and set a pullup on
     // pin 0 of that port.
@@ -129,17 +117,6 @@ void init_clock(void)
 
     _PROTECTED_WRITE(CLK.PSCTRL, CLK_PSADIV_1_gc | CLK_PSBCDIV_1_1_gc);
     _PROTECTED_WRITE(CLK.CTRL, CLK_SCLKSEL_RC32M_gc);
-}
-
-
-void init_timer(void)
-{
-    DCDC_TIMER.CTRLA = TC45_CLKSEL_DIV1_gc;
-    DCDC_TIMER.CTRLB = TC45_WGMODE_FRQ_gc;
-
-    // From XMEGA AU manual, p 172:
-    // fFRQ = fclkper / (2 PRESC (CCA + 1))
-    DCDC_TIMER.CCA = (uint16_t) (F_CPU / (2 * /* presc */ 1 * DCDC_FREQUENCY) - 1 + 0.5);
 }
 
 
@@ -178,11 +155,11 @@ static volatile bool standby_flag = false;
 
 void standby(void)
 {
-    disable_n12();
-    DISABLE_DCDC(P5A);
-    DISABLE_DCDC(P5B);
-    P3B_SYNC_PORT.OUTSET = bm(P3B_SYNC_bp);
-    DCDC_TIMER.CTRLE &= ~bm(P3B_SYNC_CC_bp);
+    reg_disable(reg_N12);
+    reg_disable(reg_P5A);
+    reg_disable(reg_P5B);
+    reg_disable(reg_P3A);
+    reg_enable(reg_P3B, false);
 
     OSC.CTRL |= OSC_RC2MEN_bm;
     while (!(OSC.STATUS & OSC_RC2MRDY_bm));

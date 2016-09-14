@@ -51,9 +51,36 @@ def_buck(P3B)
 
 def_inv(N12)
 
+// Buck probe handles the entire system at once, due to needing to configure
+// the timer. This function tracks whether it has been run, and only runs once,
+// allowing calling code to still 'probe' each regulator.
 static bool reg_buck_probe(regptr reg)
 {
     (void) reg;
+    static bool has_run = false;
+    if (has_run) return false;
+    has_run = true;
+
+    PORTCFG.MPCMASK = DCDC_SYNC_gm;
+    DCDC_SYNC_PORT.PIN0CTRL = PORT_OPC_TOTEM_gc;
+    DCDC_SYNC_PORT.OUTCLR = DCDC_SYNC_gm;
+    DCDC_SYNC_PORT.DIRSET = DCDC_SYNC_gm;
+
+    PORTCFG.MPCMASK = DCDC_PG_gm;
+    DCDC_PG_PORT.PIN0CTRL = PORT_OPC_PULLUP_gc;
+    DCDC_PG_PORT.DIRCLR = DCDC_PG_gm;
+
+    if (DCDC_SYNC_gm == 0xf0) {
+        P5A_SYNC_PORT.REMAP |= (PORT_TC4A_bm | PORT_TC4B_bm | PORT_TC4C_bm | PORT_TC4D_bm);
+    }
+
+    DCDC_TIMER.CTRLA = TC45_CLKSEL_DIV1_gc;
+    DCDC_TIMER.CTRLB = TC45_WGMODE_FRQ_gc;
+
+    // From XMEGA AU manual, p 172:
+    // fFRQ = fclkper / (2 PRESC (CCA + 1))
+    DCDC_TIMER.CCA = (uint16_t) (F_CPU / (2 * /* presc */ 1 * DCDC_FREQUENCY) - 1 + 0.5);
+
     return false;
 }
 

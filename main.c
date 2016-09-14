@@ -166,7 +166,11 @@ int main(void)
 {
     init_ports();
     init_clock();
-    init_timer();
+    reg_probe(reg_P5A);
+    reg_probe(reg_P5B);
+    reg_probe(reg_P3A);
+    reg_probe(reg_P3B);
+    reg_probe(reg_N12);
     init_uart();
     stdout = &uart_stdout;
     sei();

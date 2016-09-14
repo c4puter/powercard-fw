@@ -91,7 +91,6 @@
 
 void init_ports(void);
 void init_clock(void);
-void init_timer(void);
 
 void init_uart(void);
 
@@ -107,19 +106,6 @@ void uart_transmit(char ch);
  * not available.
  */
 int uart_receive(void);
-
-void _enable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm, bool phase_180);
-void _disable_dcdc(uint8_t sync_bm, uint8_t sync_cc_bm);
-
-#define ENABLE_DCDC(dcdc) _enable_dcdc(bm(CONCAT(dcdc, _SYNC_bp)),      \
-                                       TC45_CCAMODE_COMP_gc << (CONCAT(dcdc, _SYNC_CC_bp)),   \
-                                       CONCAT(dcdc, _PHASE_180))
-
-#define DISABLE_DCDC(dcdc) _disable_dcdc(bm(CONCAT(dcdc, _SYNC_bp)),    \
-                                         TC45_CCAMODE_COMP_gc << (CONCAT(dcdc, _SYNC_CC_bp)))
-
-void enable_n12(void);
-void disable_n12(void);
 
 // Enter standby mode.
 // This enables 3VB in unsync mode, disables all other supplies, and decreases
