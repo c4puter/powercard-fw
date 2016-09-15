@@ -58,6 +58,22 @@ static reg_type * map_supply(int num)
 }
 
 
+static void en_dis(char const * supply, bool enabled)
+{
+    int nsupply = resolve_supply(supply);
+    if (nsupply > 0 && nsupply < 6) {
+        if (enabled) {
+            printf_P(PSTR("enable supply %d\n"), nsupply);
+            reg_enable(map_supply(nsupply), true);
+        } else {
+            printf_P(PSTR("disable supply %d\n"), nsupply);
+            reg_disable(map_supply(nsupply));
+        }
+    } else {
+        printf_P(PSTR("unrecognized supply: %s\n"), supply);
+    }
+}
+
 
 void esh_cb(esh_t * esh, int argc, char ** argv, void * arg)
 {
@@ -69,20 +85,12 @@ void esh_cb(esh_t * esh, int argc, char ** argv, void * arg)
     int supply = resolve_supply(argv[1]);
 
     if (!strcmp_P(argv[0], PSTR("en"))) {
-        if (argc < 2) {
-            return;
-        }
-        printf_P(PSTR("enable supply %d\n"), supply);
-        if (supply > 0 && supply < 6) {
-            reg_enable(map_supply(supply), true);
+        for (int i = 1; i < argc; ++i) {
+            en_dis(argv[i], true);
         }
     } else if (!strcmp_P(argv[0], PSTR("dis"))) {
-        if (argc < 2) {
-            return;
-        }
-        printf_P(PSTR("disable supply %d\n"), supply);
-        if (supply > 0 && supply < 6) {
-            reg_disable(map_supply(supply));
+        for (int i = 1; i < argc; ++i) {
+            en_dis(argv[i], false);
         }
     } else if (!strcmp_P(argv[0], PSTR("stat"))) {
         if (argc < 2) {
@@ -113,13 +121,14 @@ void monitor_task(void)
     static uint8_t supply = 1;
     static bool found_bad = false;
 
+    bool en = reg_is_enabled(map_supply(supply));
     bool pg = reg_is_power_good(map_supply(supply));
 
     if (supply == 1) {
         found_bad = false;
     }
 
-    if (pg) {
+    if (!pg && en) {
         found_bad = true;
     }
 
@@ -133,7 +142,7 @@ void monitor_task(void)
     case 4: led = LED_P3B; break;
     case 5: led = LED_N12; break;
     }
-    set_led(led, pg);
+    set_led(led, pg && en);
 
     supply += 1;
     if (supply == 6) {

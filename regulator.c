@@ -149,6 +149,7 @@ static bool reg_inv_is_enabled(regptr reg)
 static bool reg_inv_is_power_good(regptr reg)
 {
     return
+        (reg_inv_is_enabled(reg)) &&
         (reg__inv(reg)->pg_port->IN & reg__inv(reg)->pg_bm) &&
         reg_is_power_good(reg_P3B) &&   // Dependency for clock to drive DC restorer
         (reg_is_power_good(reg_P5A) ||  // Dependency for power
