@@ -142,14 +142,11 @@ void monitor_task(void)
 }
 
 
-void esh_printer(esh_t * esh, char const * s, void * arg)
+void esh_printer(esh_t * esh, char c, void * arg)
 {
     (void) esh;
     (void) arg;
-    while (s && *s) {
-        putchar(*s);
-        ++s;
-    }
+    putchar(c);
 }
 
 
