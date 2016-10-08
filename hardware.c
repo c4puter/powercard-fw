@@ -230,3 +230,23 @@ int uart_receive(void)
         return -1;
     }
 }
+
+static TWI_Slave_t twi_slave;
+static void (* volatile twi_callback)(TWI_Slave_t * packet) = NULL;
+
+static void twi_process(void)
+{
+    twi_callback(&twi_slave);
+}
+
+void init_twi(void (* callback)(TWI_Slave_t * packet))
+{
+    twi_callback = callback;
+    TWI_SlaveInitializeDriver(&twi_slave, &I2C_TWI, twi_process);
+    TWI_SlaveInitializeModule(&twi_slave, I2C_ADDR, TWI_SLAVE_INTLVL_LO_gc);
+}
+
+ISR(I2C_VECT)
+{
+    TWI_SlaveInterruptHandler(&twi_slave);
+}

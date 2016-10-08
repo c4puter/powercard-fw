@@ -1,6 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
+#include <util/atomic.h>
 #include <stddef.h>
 #include <avr/pgmspace.h>
 #include <esh.h>
@@ -10,6 +11,19 @@
 #include "hardware.h"
 #include "regulator.h"
 #include "leds.h"
+
+#define CTRL_BIT_ENABLED    (1 << 0)
+#define CTRL_BIT_POWER_GOOD (1 << 1)
+#define CTRL_BIT_L_ENABLED  (1 << 2)
+#define CTRL_BIT_INVALID    (1 << 7)
+static volatile uint8_t CONTROL[6] = {
+    CTRL_BIT_INVALID,
+    0,  // P5A
+    0,  // P5B
+    0,  // P3A
+    CTRL_BIT_ENABLED,   // P3B, enabled at startup
+    0,  // N12
+};
 
 static int uart_putchar(char c, FILE *stream);
 static FILE uart_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
@@ -123,6 +137,35 @@ void monitor_task(void)
 
     bool en = reg_is_enabled(map_supply(supply));
     bool pg = reg_is_power_good(map_supply(supply));
+    bool sw = false;
+    bool enable = false;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        uint8_t ctrl = CONTROL[supply];
+        if (pg) {
+            ctrl |= CTRL_BIT_POWER_GOOD;
+        } else {
+            ctrl &= ~CTRL_BIT_POWER_GOOD;
+        }
+
+        enable = ctrl & CTRL_BIT_ENABLED;
+        bool was_enabled = ctrl & CTRL_BIT_L_ENABLED;
+        sw = (enable && !was_enabled) || (!enable && was_enabled);
+        if (enable) {
+            ctrl |= CTRL_BIT_L_ENABLED;
+        } else {
+            ctrl &= ~CTRL_BIT_L_ENABLED;
+        }
+        CONTROL[supply] = ctrl;
+    }
+
+    if (sw) {
+        if (enable) {
+            reg_enable(map_supply(supply), true);
+        } else {
+            reg_disable(map_supply(supply));
+        }
+    }
 
     if (supply == 1) {
         found_bad = false;
@@ -159,6 +202,40 @@ void esh_printer(esh_t * esh, char c, void * arg)
 }
 
 
+// I2C interface follows the usual "address, data" form, where the addresses
+// are the supply numbers (1-indexed here as everywhere else). Each byte is
+// a bitfield with:
+//      ENABLED     = 1 << 0
+//      POWER_GOOD  = 1 << 1
+//      RESERVED    = 1 << 2    // used to track previous ENABLED state
+//      INVALID     = 1 << 7
+
+void twi_callback(TWI_Slave_t * packet)
+{
+    static uint8_t active_supply = 0;
+    uint8_t supply = packet->receivedData[0];
+    if (supply >= 1 && supply <= 5) {
+        active_supply = supply;
+    } else {
+        active_supply = 0;
+    }
+
+    uint8_t outindex = packet->bytesReceived;
+    if (outindex == 0) {
+        if (active_supply >= 1 && active_supply <= 5) {
+            packet->sendData[outindex] = CONTROL[active_supply];
+        } else {
+            packet->sendData[outindex] = CTRL_BIT_INVALID;
+        }
+    } else {
+        // Only allow certain bits to be changed
+        const uint8_t allowed_bits = CTRL_BIT_ENABLED;
+        uint8_t bits_to_set = packet->receivedData[outindex] & allowed_bits;
+        CONTROL[active_supply] = (CONTROL[active_supply] & ~allowed_bits) | bits_to_set;
+    }
+}
+
+
 int main(void)
 {
     init_ports();
@@ -170,8 +247,9 @@ int main(void)
     reg_probe(reg_N12);
     init_uart();
     stdout = &uart_stdout;
-    sei();
+    init_twi(&twi_callback);
     PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
+    sei();
 
     esh_t * esh = esh_init();
     esh_register_command(esh, &esh_cb, NULL);

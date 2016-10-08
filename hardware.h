@@ -3,6 +3,7 @@
 
 #include <avr/io.h>
 #include <stdbool.h>
+#include "avr1308/twi_slave_driver.h"
 
 #define CONCAT__2(x,y)  x ## y
 #define CONCAT(x,y)     CONCAT__2(x,y)
@@ -29,6 +30,8 @@
 #define SCL_bp      1
 #define I2C_gm      (bm(SDA_bp) | bm(SCL_bp))
 #define I2C_TWI     TWIC
+#define I2C_ADDR    0x47
+#define I2C_VECT    TWIC_TWIS_vect
 
 #define INT_PORT    PORTC
 #define INT_bp      2
@@ -106,6 +109,8 @@ void uart_transmit(char ch);
  * not available.
  */
 int uart_receive(void);
+
+void init_twi(void (* callback)(TWI_Slave_t * packet));
 
 // Enter standby mode.
 // This enables 3VB in unsync mode, disables all other supplies, and decreases
