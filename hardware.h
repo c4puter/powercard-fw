@@ -11,7 +11,7 @@
 #define bm(bp)      (1 << (bp))
 #define PINCTRL(bp) CONCAT(PIN, CONCAT(bp, CTRL))
 
-#define PORTA_UNUSED    (bm(1) | bm(5) | bm(6) | bm(7))
+#define PORTA_UNUSED    (bm(1) | bm(5) | bm(7))
 #define PORTC_UNUSED    (bm(3))
 #define PORTD_UNUSED    (bm(5))
 #define PORTR_UNUSED    (bm(0) | bm(1))
@@ -84,6 +84,9 @@
 #define P3B_PG_PORT     PORTD
 #define P3B_PG_bp       1
 #define P3B_PHASE_180   0
+
+#define P3B_DISCH_PORT  PORTA
+#define P3B_DISCH_bp    6
 
 #define DCDC_SYNC_gm    (bm(P3A_SYNC_bp) | bm(P3B_SYNC_bp) | bm(P5A_SYNC_bp) | bm(P5B_SYNC_bp))
 #define DCDC_PG_gm      (bm(P3A_PG_bp) | bm(P3B_PG_bp) | bm(P5A_PG_bp) | bm(P5B_PG_bp))

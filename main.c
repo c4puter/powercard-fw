@@ -167,11 +167,16 @@ void monitor_task(void)
 
     if (sw) {
         if (enable) {
+            if (supply == SUPPLY_KEEP_ALIVE) {
+                P3B_DISCH_PORT.OUTSET = bm(P3B_DISCH_bp);
+            }
+
             reg_enable(supply, true);
         } else {
             reg_disable(supply);
 
             if (supply == SUPPLY_KEEP_ALIVE) {
+                P3B_DISCH_PORT.OUTCLR = bm(P3B_DISCH_bp);
                 _delay_ms(KEEP_ALIVE_DELAY_MS);
                 CONTROL[nsupply] |= CTRL_BIT_ENABLED;
             }

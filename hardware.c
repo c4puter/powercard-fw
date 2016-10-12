@@ -85,6 +85,10 @@ void init_ports(void)
     N12_PG_PORT.PINCTRL(N12_PG_bp) = PORT_OPC_PULLUP_gc;
     N12_PG_PORT.DIRCLR = bm(N12_PG_bp);
 
+    P3B_DISCH_PORT.PINCTRL(P3B_DISCH_bp) = PORT_OPC_WIREDAND_gc;
+    P3B_DISCH_PORT.OUTCLR = bm(P3B_DISCH_bp);
+    P3B_DISCH_PORT.DIRSET = bm(P3B_DISCH_bp);
+
     // Beware! the conditionals are necessary here. If an unused mask is zero,
     // this will disable the MPCMASK for that operation and set a pullup on
     // pin 0 of that port.
