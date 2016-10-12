@@ -25,6 +25,11 @@ static volatile uint8_t CONTROL[6] = {
     0,  // N12
 };
 
+// Slight hack: if this supply is shut down, delay and then turn it back on.
+// This allows the EC to do a full reboot of the whole system including itself.
+#define SUPPLY_KEEP_ALIVE   reg_P3B
+#define KEEP_ALIVE_DELAY_MS 1000
+
 static int uart_putchar(char c, FILE *stream);
 static FILE uart_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
                                                  _FDEV_SETUP_WRITE);
@@ -165,6 +170,11 @@ void monitor_task(void)
             reg_enable(supply, true);
         } else {
             reg_disable(supply);
+
+            if (supply == SUPPLY_KEEP_ALIVE) {
+                _delay_ms(KEEP_ALIVE_DELAY_MS);
+                CONTROL[nsupply] |= CTRL_BIT_ENABLED;
+            }
         }
     }
 
