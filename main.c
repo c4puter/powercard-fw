@@ -266,6 +266,11 @@ int main(void)
     esh_register_command(esh, &esh_cb, NULL);
     esh_register_print(esh, &esh_printer, NULL);
 
+    // Delay startup until the input rail has come *fully* up, don't risk
+    // glitching it by powering up the regs while it's just high enough to
+    // power this MCU
+    _delay_ms(40);
+
     for(;;) {
         monitor_task();
         led_cycle();
