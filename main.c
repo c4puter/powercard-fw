@@ -132,16 +132,17 @@ void esh_cb(esh_t * esh, int argc, char ** argv, void * arg)
 
 void monitor_task(void)
 {
-    static uint8_t supply = 1;
+    static uint8_t nsupply = 1;
     static bool found_bad = false;
 
-    bool en = reg_is_enabled(map_supply(supply));
-    bool pg = reg_is_power_good(map_supply(supply));
+    reg_type * supply = map_supply(nsupply);
+    bool en = reg_is_enabled(supply);
+    bool pg = reg_is_power_good(supply);
     bool sw = false;
     bool enable = false;
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        uint8_t ctrl = CONTROL[supply];
+        uint8_t ctrl = CONTROL[nsupply];
         if (pg) {
             ctrl |= CTRL_BIT_POWER_GOOD;
         } else {
@@ -156,18 +157,18 @@ void monitor_task(void)
         } else {
             ctrl &= ~CTRL_BIT_L_ENABLED;
         }
-        CONTROL[supply] = ctrl;
+        CONTROL[nsupply] = ctrl;
     }
 
     if (sw) {
         if (enable) {
-            reg_enable(map_supply(supply), true);
+            reg_enable(supply, true);
         } else {
-            reg_disable(map_supply(supply));
+            reg_disable(supply);
         }
     }
 
-    if (supply == 1) {
+    if (nsupply == 1) {
         found_bad = false;
     }
 
@@ -178,7 +179,7 @@ void monitor_task(void)
     set_led(LED_SFY, found_bad);
 
     uint16_t led = 0;
-    switch (supply) {
+    switch (nsupply) {
     case 1: led = LED_P5A; break;
     case 2: led = LED_P5B; break;
     case 3: led = LED_P3A; break;
@@ -187,9 +188,9 @@ void monitor_task(void)
     }
     set_led(led, pg && en);
 
-    supply += 1;
-    if (supply == 6) {
-        supply = 1;
+    nsupply += 1;
+    if (nsupply == 6) {
+        nsupply = 1;
     }
 }
 
